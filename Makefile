@@ -77,4 +77,4 @@ clean:
 
 .PHONY: flash
 flash:
-	st-flash write main.bin 0x08000000
+	st-flash write $(TARGET).bin 0x08000000
