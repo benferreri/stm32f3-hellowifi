@@ -22,8 +22,13 @@ void flash_led(int msecs) {
 
 void main() {
 
+    /* set system clock to 64 MHz */
     set_sysclk_64();
 
+    /* turn on GPIOA clock and setup LED pin modes
+     * MODER 0x1 : general purpose output mode
+     * OTYPER 0  : output push-pull 
+     */
     RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
     GPIOA->MODER  &= ~(0x3 << (LED_PIN*2));
     GPIOA->MODER  |=  (0x1 << (LED_PIN*2));

@@ -1,10 +1,7 @@
 #include <stddef.h>
 #include "global.h"
 #include "clock.h"
-
-#define TX1_PIN 9
-#define RX1_PIN 10
-#define RX_BUFFER_SIZE 1024
+#include "uart.h"
 
 static uint8_t uart1_enabled = 0;
 
@@ -15,10 +12,9 @@ static struct {
     uint8_t *writeptr;
     uint8_t full;
     uint8_t overrun;
-    uint8_t testflag;
 } rxbuf1;
 
-/* function declarations */
+/* static function declarations */
 static uint32_t uart1_tx_ready();
 static uint32_t uart1_tx_complete();
 static uint32_t uart1_rx_ready();
@@ -32,14 +28,17 @@ static void uart1_writetobuf();
 void enable_uart1(uint32_t baud_rate, uint32_t clk_speed) {
 
     /* set usart1 clock source to be SYSCLK */
-    RCC->CFGR3 &= ~(0x3); // bits 1:0 are USART1 clock switch
-    RCC->CFGR3 |= 0x1;    // b01 = sysclk
+    RCC->CFGR3 &= ~(RCC_CFGR3_USART1SW);
+    RCC->CFGR3 |= RCC_CFGR3_USART1SW_SYSCLK;
     
     /* enable usart1 clock and GPIOA clock */
     RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
     RCC->AHBENR  |= RCC_AHBENR_GPIOAEN;
 
-    /* set pins to alt function mode and high speed */
+    /* set pins to alt function mode and high speed
+     * alt function mode: b10
+     * high speed mode:   b11
+     */
     GPIOA->MODER &= ~(0x3 << 2 * TX1_PIN);
     GPIOA->MODER |=  (0x2 << 2 * TX1_PIN);
     GPIOA->MODER &= ~(0x3 << 2 * RX1_PIN);
@@ -60,9 +59,14 @@ void enable_uart1(uint32_t baud_rate, uint32_t clk_speed) {
     /* set oversampling mode to 8 */
     USART1->CR1 |= USART_CR1_OVER8;
 
-    /* set baud rate */
+    /* set baud rate 
+     * for OVER8=1 :
+     * BRR bits [15:4] = usartdiv bits [15:4]
+     * BRR bit 3 is cleared
+     * BRR bits [2:0] = usartdiv bits [3:1] shifted right by 1
+     */
     USART1->BRR &= ~(0xFFFF);
-    uint16_t usartdiv = 2 * clk_speed / baud_rate; // f_clk = 64MHz
+    uint16_t usartdiv = 2 * clk_speed / baud_rate;
     USART1->BRR |= (0x7 & (usartdiv >> 1)) | (usartdiv & ~(0xF));
 
     /* set number of stop bits to 1 (00) */
@@ -72,7 +76,6 @@ void enable_uart1(uint32_t baud_rate, uint32_t clk_speed) {
     rxbuf1.readptr = rxbuf1.writeptr = &rxbuf1.buffer[0];   
     rxbuf1.full = 0;
     rxbuf1.overrun = 0;
-    rxbuf1.testflag = 0;
     
     /* enable rx/tx */
     USART1->CR1 |= USART_CR1_TE;
@@ -82,7 +85,7 @@ void enable_uart1(uint32_t baud_rate, uint32_t clk_speed) {
     USART1->CR1 |= USART_CR1_UE;
     uart1_enabled = 1;
     
-    /* turn on rxne interrupt (read data register ready) */
+    /* turn on rxne interrupt (0xF = highest priority) */
     USART1->CR1 |= USART_CR1_RXNEIE;
     NVIC_SetPriority(USART1_IRQn, 0xF);
     NVIC_EnableIRQ(USART1_IRQn);
@@ -90,12 +93,12 @@ void enable_uart1(uint32_t baud_rate, uint32_t clk_speed) {
 
 /* check if uart1 is enabled and if transmit data register is empty */
 uint32_t uart1_tx_ready() {
-    return uart1_enabled && (USART1->ISR & (1 << 7));
+    return uart1_enabled && (USART1->ISR & USART_ISR_TXE);
 }
 
 /* check if transmission is complete */
 uint32_t uart1_tx_complete() {
-    return USART1->ISR & (1 << 6);
+    return USART1->ISR & USART_ISR_TC;
 }
 
 /* send data over uart1.
@@ -118,7 +121,6 @@ uint32_t uart1_send(uint8_t message[]) {
 void USART1_IRQHandler(void) {
     if (USART1->ISR & USART_ISR_RXNE) {
         uart1_writetobuf();
-        rxbuf1.testflag++;
     }
 }
 
@@ -147,8 +149,8 @@ static void uart1_writetobuf() {
 }
 
 /* check if uart1 is enabled and if read data register is not empty */
-uint32_t uart1_rx_ready() {
-    return uart1_enabled && (USART1->ISR & (1 << 5));
+static uint32_t uart1_rx_ready() {
+    return uart1_enabled && (USART1->ISR & USART_ISR_RXNE);
 }
 
 /* get a received character from the buffer.
