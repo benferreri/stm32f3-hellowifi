@@ -48,6 +48,8 @@ C_SRC    =  ./device_headers/system_stm32f3xx.c
 C_SRC 	 += ./src/main.c
 C_SRC    += ./src/uart.c
 C_SRC    += ./src/clock.c
+C_SRC 	 += ./src/ustring.c
+C_SRC 	 += ./src/wifi.c
 
 INCLUDE =  -I./
 INCLUDE += -I./device_headers
