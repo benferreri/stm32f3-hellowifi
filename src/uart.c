@@ -85,9 +85,9 @@ void enable_uart1(uint32_t baud_rate, uint32_t clk_speed) {
     USART1->CR1 |= USART_CR1_UE;
     uart1_enabled = 1;
     
-    /* turn on rxne interrupt (0xF = highest priority) */
+    /* turn on rxne interrupt (0x0 = highest priority) */
     USART1->CR1 |= USART_CR1_RXNEIE;
-    NVIC_SetPriority(USART1_IRQn, 0xF);
+    NVIC_SetPriority(USART1_IRQn, 0x0);
     NVIC_EnableIRQ(USART1_IRQn);
 }
 
@@ -109,6 +109,7 @@ uint32_t uart1_send(uint8_t message[]) {
     if (!uart1_tx_ready())
         return 1;
     uint32_t i = 0;
+    uint8_t c;
     while ((c = message[i++]) != '\0') {
         USART1->TDR = c;                // send char
         while (!uart1_tx_ready())
