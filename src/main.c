@@ -2,22 +2,13 @@
 #include "global.h"
 #include "uart.h"
 #include "clock.h"
-
-void sleep(uint32_t msecs) {
-    #define STEPS_PER_MSEC 720
-    uint32_t i,s;
-    for (s=0; s < msecs; s++) {
-        for (i = 0; i < STEPS_PER_MSEC; i++) {
-            // skip CPU cycle
-            asm("nop");
-        }
-    }
-}
+#include "ustring.h"
+#include "wifi.h"
 
 void flash_led(int msecs) {
-        GPIOA->ODR |= (1 << LED_PIN);
-        sleep(msecs);
-        GPIOA->ODR &= ~(1 << LED_PIN);
+    GPIOA->ODR |= (1 << LED_PIN);
+    sleep(msecs);
+    GPIOA->ODR &= ~(1 << LED_PIN);
 }
 
 void main() {
@@ -39,14 +30,17 @@ void main() {
     /* baud rate 115.2k, sysclk 64Mhz */
     enable_uart1(115200, 64000000);
 
-    uint8_t message[] = "AT\r\n";
-    size_t length = sizeof(message)/sizeof(message[0]) - 1;
-    uart1_send(message);
-
-    uint8_t s[100];
-    while (1) {
-        uint8_t c = uart1_getchar();
-        if (c != 0)
-            s[i++] = c;
-    }
+    uint8_t message[5] = "AT\r\n";
+    uint8_t response[8];
+    sendcmd((uint8_t*)"AT\r\n", response, 8);
+    if (ustrcmp(response, (uint8_t*)"OK") == 0)
+        while (1) {
+            flash_led(1000);
+            sleep(1000);
+        }
+    else
+        while (1) {
+            flash_led(3000);
+            sleep(3000);
+        }
 }
