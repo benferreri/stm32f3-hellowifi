@@ -40,7 +40,7 @@ void main() {
         }
     else
         while (1) {
-            flash_led(3000);
-            sleep(3000);
+            flash_led(9000);
+            sleep(9000);
         }
 }
