@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include "global.h"
 #include "uart.h"
 #include "clock.h"
 

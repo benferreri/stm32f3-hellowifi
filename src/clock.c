@@ -100,13 +100,17 @@ void start_timer(TIM_TypeDef *TIMx, uint16_t periodms) {
     }
 
     /* set prescale and autoreload registers */
-    TIMx->PSC = current_sysclk_hz / 1000;
-    TIMx->ARR = periodms;
+    TIMx->PSC &= ~(0xFFFF);
+    TIMx->PSC |= current_sysclk_hz / 1000;
+    TIMx->ARR &= ~(0xFFFF);
+    TIMx->ARR |= periodms;
     /* reset timer */
     TIMx->EGR |= TIM_EGR_UG;
+    /* clear interrupt flag */
+    TIMx->SR &= ~(TIM_SR_UIF);
     /* enable interrupt */
     TIMx->DIER |= TIM_DIER_UIE;
-    /* enable timer */
+    /* start counter */
     TIMx->CR1 |= TIM_CR1_CEN;
 }
 
@@ -126,7 +130,7 @@ void TIM1_BRK_TIM15_IRQHandler() {
     }
 }
 
-void sleep(uint32_t msecs) {
+void sleep(uint16_t msecs) {
     if (!(RCC->APB2ENR & RCC_APB2ENR_TIM15EN))
         enable_timer(TIM15, 1);
     start_timer(TIM15, msecs);
